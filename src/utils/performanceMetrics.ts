@@ -388,38 +388,64 @@ export function calculatePerformanceMetrics(trades: Trade[]): PerformanceMetrics
     }
   });
 
-  // Annualized Return
-  const annualizedReturn = (Math.pow(1 + totalReturn / 100, 365 / strategyDuration) - 1) * 100;
+  // Annualized Return - Utiliser la formule standard pour annualiser un rendement
+  let annualizedReturn = 0;
+  if (strategyDuration > 0) {
+    // Convertir le rendement total en décimal
+    const totalReturnDecimal = totalReturn / 100;
+    
+    // Calculer le rendement annualisé avec la formule: (1 + r)^(365/t) - 1
+    // où r = rendement total (en décimal) et t = durée en jours
+    annualizedReturn = (Math.pow(1 + totalReturnDecimal, 365 / strategyDuration) - 1) * 100;
+  }
 
   // Calcul de la performance moyenne mensuelle
-  const monthlyPerformance: Record<string, { total: number, count: number }> = {};
-  
-  trades.forEach(trade => {
-    const exitDate = new Date(trade.exitDate);
-    const monthKey = `${exitDate.getFullYear()}-${exitDate.getMonth() + 1}`;
+  // Utiliser la durée totale de la stratégie et le rendement total pour calculer une moyenne mensuelle exacte
+  let averageMonthlyPerformance = 0;
+  if (strategyDuration > 0) {
+    // Convertir la durée en jours en nombre de mois (approximatif)
+    const monthsCount = strategyDuration / 30.44; // 30.44 = nombre moyen de jours par mois
     
-    if (!monthlyPerformance[monthKey]) {
-      monthlyPerformance[monthKey] = { total: 0, count: 0 };
+    // Si la stratégie a duré moins d'un mois, considérer la performance totale comme mensuelle
+    if (monthsCount < 1) {
+      averageMonthlyPerformance = totalReturn;
+    } else {
+      // Calculer la moyenne mensuelle à partir du rendement total et du nombre de mois
+      // Utiliser la formule: (1 + r)^(1/n) - 1 pour obtenir le rendement mensuel équivalent
+      // où r = rendement total (en décimal) et n = nombre de mois
+      const totalReturnDecimal = totalReturn / 100;
+      const monthlyReturnDecimal = Math.pow(1 + totalReturnDecimal, 1 / monthsCount) - 1;
+      averageMonthlyPerformance = monthlyReturnDecimal * 100;
     }
-    
-    monthlyPerformance[monthKey].total += trade.profitLoss;
-    monthlyPerformance[monthKey].count++;
-  });
-  
-  // Calculer la moyenne pour chaque mois, puis la moyenne totale
-  const months = Object.keys(monthlyPerformance);
-  const monthlyTotals = months.map(month => monthlyPerformance[month].total);
-  const averageMonthlyPerformance = months.length > 0 
-    ? monthlyTotals.reduce((sum, value) => sum + value, 0) / months.length 
-    : 0;
+  }
 
   // Expectancy Score
   const averageWin = winningTrades.length > 0 ? totalProfit / winningTrades.length : 0;
   const averageLoss = losingTrades.length > 0 ? totalLoss / losingTrades.length : 0;
   const expectancyScore = (globalWinRate * averageWin) - (lossRate * averageLoss);
 
-  // Volatilité des retours
-  const returnVolatility = returnStdDev * 100;
+  // Volatilité des retours - calcul amélioré
+  let returnVolatility = 0;
+  if (strategyDuration > 0) {
+    // Si nous avons des données quotidiennes, utiliser l'écart-type des rendements quotidiens
+    if (dailyReturns.length > 0) {
+      // Calculer l'écart-type des rendements quotidiens
+      const dailyStdDev = returnStdDev;
+      
+      // Annualiser la volatilité (multiplier par racine carrée du nombre de jours de trading dans une année)
+      // On utilise généralement 252 jours de trading pour une année
+      returnVolatility = dailyStdDev * Math.sqrt(252) * 100;
+    } else {
+      // Si nous n'avons pas de rendements quotidiens, estimer la volatilité à partir du rendement total
+      // et de la durée de la stratégie (approximation)
+      const totalReturnDecimal = totalReturn / 100;
+      const annualizedReturnValue = Math.pow(1 + totalReturnDecimal, 365 / strategyDuration) - 1;
+      
+      // Estimer la volatilité annualisée comme étant environ 2 fois le rendement annualisé
+      // (approximation grossière basée sur le ratio de Sharpe moyen historique)
+      returnVolatility = Math.abs(annualizedReturnValue) * 200;
+    }
+  }
 
   // Calcul des durées des trades et statistiques associées
   const tradeDurations = trades.map(trade => {

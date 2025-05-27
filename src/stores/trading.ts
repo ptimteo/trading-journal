@@ -23,6 +23,9 @@ interface TradingMetrics {
   valueAtRisk99?: number;
   conditionalVaR95?: number;
   conditionalVaR99?: number;
+  averageMonthlyPerformance?: number;
+  annualizedReturn?: number;
+  returnVolatility?: number;
 }
 
 interface CryptoMetrics {
@@ -840,14 +843,14 @@ export const useTradingStore = defineStore('trading', {
         // Calculer le montant absolu du P/L basé sur le pourcentage du risque
         const riskAmount = (trade.risk / 100) * this.initialCapital; // Montant risqué basé sur le capital initial
         
-        // Calculer le P/L en montant absolu basé sur le pourcentage saisi
+        // Calculer le P/L en montant absolu (euros) basé sur le pourcentage saisi
         // Le pourcentage est appliqué au capital initial pour être cohérent
         const profitLossAmount = (trade.profitLoss / 100) * this.initialCapital;
         
-        // Mettre à jour le capital courant
+        // Mettre à jour le capital courant en euros
         currentBalance += profitLossAmount;
         
-        // Ajouter un point à la courbe d'équité
+        // Ajouter un point à la courbe d'équité avec la valeur en euros
         equityCurve.push({ 
           date: exitDate, 
           balance: currentBalance 
@@ -1058,7 +1061,10 @@ export const useTradingStore = defineStore('trading', {
           valueAtRisk95: 0,
           valueAtRisk99: 0,
           conditionalVaR95: 0,
-          conditionalVaR99: 0
+          conditionalVaR99: 0,
+          averageMonthlyPerformance: 0,
+          annualizedReturn: 0,
+          returnVolatility: 0
         };
       }
       
@@ -1082,7 +1088,21 @@ export const useTradingStore = defineStore('trading', {
         this.trading.metrics.conditionalVaR99 = Math.max(0, advancedMetrics.conditionalVaR99);
       }
       
+      // Ajouter les nouvelles métriques demandées
+      if (advancedMetrics.averageMonthlyPerformance !== undefined) {
+        this.trading.metrics.averageMonthlyPerformance = advancedMetrics.averageMonthlyPerformance;
+      }
+      if (advancedMetrics.annualizedReturn !== undefined) {
+        this.trading.metrics.annualizedReturn = advancedMetrics.annualizedReturn;
+      }
+      if (advancedMetrics.returnVolatility !== undefined) {
+        this.trading.metrics.returnVolatility = advancedMetrics.returnVolatility;
+      }
+      
       console.log("Métriques mises à jour:", this.trading.metrics);
+      
+      // Sauvegarder les données mises à jour
+      this.saveToLocalStorage();
     },
   }
 }); 

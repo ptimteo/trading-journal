@@ -37,24 +37,14 @@ export default defineConfig({
     port: 3001,
     host: true, // Permet l'accès depuis toutes les interfaces
     strictPort: true,
-    // Permet de fermer le serveur quand le navigateur est fermé
-    // et contrôler le comportement du serveur
+    // Désactivation de la surveillance des fichiers
     watch: {
-      usePolling: true,
-      // Améliore la réactivité du watcher
-      interval: 100,
-      // Ignore les fichiers temporaires pour éviter les rechargements inutiles
-      ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/*.log', '**/*.bak', '**/*.backup']
+      usePolling: false,
+      interval: 100000, // Intervalle très long pour minimiser la surveillance
+      ignored: ['**/*'] // Ignorer tous les fichiers
     },
-    hmr: {
-      protocol: 'ws',
-      host: 'localhost',
-      clientPort: 3001,
-      // Ajout des options pour le HMR
-      overlay: false, // Désactive l'overlay d'erreur qui cause parfois un refresh complet
-      timeout: 2000, // Augmente le timeout pour éviter les refreshs inutiles
-      port: 24678 // Port dédié pour HMR
-    },
+    // Désactivation du HMR
+    hmr: false,
     // Configuration pour éviter les rechargements complets
     middlewareMode: false,
     fs: {

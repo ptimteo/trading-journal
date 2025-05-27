@@ -26,11 +26,6 @@ onMounted(() => {
   if (route.query.error) {
     errorMessage.value = route.query.error as string;
   }
-  
-  // Si l'utilisateur est déjà authentifié, rediriger vers le dashboard
-  if (authStore.isAuthenticated) {
-    router.push('/dashboard');
-  }
 });
 
 const handleLogin = async () => {

@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth';
 const authStore = useAuthStore();
 const router = useRouter();
 const showUserMenu = ref(false);
+const showMobileMenu = ref(false);
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const currentUser = computed(() => authStore.currentUser);
@@ -14,18 +15,26 @@ const toggleUserMenu = () => {
   showUserMenu.value = !showUserMenu.value;
 };
 
+const toggleMobileMenu = () => {
+  showMobileMenu.value = !showMobileMenu.value;
+};
+
 const closeUserMenu = () => {
   showUserMenu.value = false;
 };
 
+const closeMobileMenu = () => {
+  showMobileMenu.value = false;
+};
+
 const logout = () => {
   authStore.logout();
-  router.push('/login');
+  router.push('/');
   closeUserMenu();
 };
 
 const goToLogin = () => {
-  router.push('/login');
+  router.push('/');
 };
 
 const goToRegister = () => {
@@ -50,8 +59,9 @@ onMounted(async () => {
               <span>Quantify</span>
             </router-link>
           </div>
+          <!-- Navigation principale - visible seulement si connecté -->
           <nav v-if="isAuthenticated" class="hidden sm:ml-6 sm:flex sm:space-x-8">
-            <router-link to="/" class="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+            <router-link to="/dashboard" class="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
               Tableau de Bord
             </router-link>
             <router-link to="/trades" class="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
@@ -72,6 +82,19 @@ onMounted(async () => {
           </nav>
         </div>
         <div class="flex items-center">
+          <!-- Bouton menu mobile - visible seulement si connecté -->
+          <div v-if="isAuthenticated" class="sm:hidden">
+            <button 
+              @click="toggleMobileMenu"
+              class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+            >
+              <span class="sr-only">Ouvrir le menu principal</span>
+              <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
+          
           <div v-if="isAuthenticated" class="ml-3 relative">
             <div>
               <button 
@@ -105,6 +128,54 @@ onMounted(async () => {
             </button>
           </div>
         </div>
+      </div>
+    </div>
+    
+    <!-- Menu mobile - visible seulement si connecté -->
+    <div v-if="isAuthenticated && showMobileMenu" class="sm:hidden">
+      <div class="pt-2 pb-3 space-y-1 bg-white border-t border-gray-200">
+        <router-link 
+          @click="closeMobileMenu"
+          to="/dashboard" 
+          class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+        >
+          Tableau de Bord
+        </router-link>
+        <router-link 
+          @click="closeMobileMenu"
+          to="/trades" 
+          class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+        >
+          Journal des Trades
+        </router-link>
+        <router-link 
+          @click="closeMobileMenu"
+          to="/crypto" 
+          class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+        >
+          Portfolio Crypto
+        </router-link>
+        <router-link 
+          @click="closeMobileMenu"
+          to="/long-term" 
+          class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+        >
+          Investissements Long Terme
+        </router-link>
+        <router-link 
+          @click="closeMobileMenu"
+          to="/macro" 
+          class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+        >
+          Macro
+        </router-link>
+        <router-link 
+          @click="closeMobileMenu"
+          to="/resources" 
+          class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+        >
+          Ressources
+        </router-link>
       </div>
     </div>
   </header>

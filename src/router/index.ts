@@ -11,7 +11,7 @@ const router = createRouter({
       component: defineAsyncComponent(() => import('../views/DashboardView.vue')),
       meta: {
         title: 'Tableau de Bord',
-        requiresAuth: false
+        requiresAuth: true
       }
     },
     {
@@ -20,7 +20,7 @@ const router = createRouter({
       component: defineAsyncComponent(() => import('../views/TradesView.vue')),
       meta: {
         title: 'Journal des Trades',
-        requiresAuth: false
+        requiresAuth: true
       }
     },
     {
@@ -29,7 +29,7 @@ const router = createRouter({
       component: defineAsyncComponent(() => import('../views/CryptoView.vue')),
       meta: {
         title: 'Portfolio Crypto',
-        requiresAuth: false
+        requiresAuth: true
       }
     },
     {
@@ -38,7 +38,7 @@ const router = createRouter({
       component: defineAsyncComponent(() => import('../views/LongTermView.vue')),
       meta: {
         title: 'Investissements Long Terme',
-        requiresAuth: false
+        requiresAuth: true
       }
     },
     {
@@ -47,7 +47,7 @@ const router = createRouter({
       component: defineAsyncComponent(() => import('../views/ResourcesView.vue')),
       meta: {
         title: 'Ressources Utiles',
-        requiresAuth: false
+        requiresAuth: true
       }
     },
     {
@@ -56,7 +56,7 @@ const router = createRouter({
       component: defineAsyncComponent(() => import('../views/MacroEconomicView.vue')),
       meta: {
         title: 'Indicateurs Macroéconomiques',
-        requiresAuth: false
+        requiresAuth: true
       },
       beforeEnter: (to, from, next) => {
         to.params.section = 'overview';

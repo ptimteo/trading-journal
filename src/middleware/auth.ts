@@ -8,19 +8,12 @@ export default async function authMiddleware(
 ) {
   const authStore = useAuthStore();
   
-  // Si l'utilisateur est déjà authentifié
-  if (authStore.isAuthenticated) {
-    // Si l'utilisateur est authentifié et tente d'accéder à la page de login,
-    // rediriger vers le dashboard
-    if (to.name === 'login') {
-      return next({ name: 'dashboard' });
-    }
-    
-    // Sinon, laisse passer vers la page demandée
-    return next();
+  // Vérifier si la route nécessite une authentification
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    // Rediriger vers la page de connexion si l'authentification est requise
+    return next({ name: 'login' });
   }
   
-  // Même si l'utilisateur n'est pas authentifié, on le laisse accéder à toutes les pages
-  // sans redirection vers la page de connexion
+  // Laisser passer vers la page demandée
   return next();
 } 

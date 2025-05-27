@@ -42,6 +42,7 @@ const showAddModal = ref(false);
 const showAdvancedPerformance = ref(false); // Masqué par défaut
 const showTradingStrategy = ref(false);
 const showTradingCalendar = ref(false); // Masqué par défaut
+const showArchives = ref(false); // Masqué par défaut
 const sortBy = ref('exitDate');
 const sortDirection = ref('desc');
 const selectedTimeframe = ref('all'); // 'month', 'year', 'all'
@@ -58,6 +59,148 @@ const resetAll = () => {
     tradingStore.resetAllData();
     // Rafraîchir la page pour s'assurer que tous les composants sont mis à jour
     window.location.reload();
+  }
+};
+
+// Variables pour le modal d'archivage
+const showArchiveModal = ref(false);
+const archiveName = ref('');
+const archivesUpdateTrigger = ref(0);
+
+// Fonction d'archivage de la période de stratégie
+const archiveStrategy = () => {
+  if (!tradingStore.trading.trades.length) {
+    alert('Aucun trade à archiver.');
+    return;
+  }
+  
+  // Générer un nom par défaut
+  archiveName.value = `Stratégie ${new Date().toLocaleDateString('fr-FR')}`;
+  showArchiveModal.value = true;
+};
+
+// Fonction pour confirmer l'archivage avec le nom personnalisé
+const confirmArchive = () => {
+  if (!archiveName.value.trim()) {
+    alert('Veuillez saisir un nom pour l\'archive.');
+    return;
+  }
+  
+  // Calculer la durée de la stratégie
+  const trades = tradingStore.trading.trades;
+  let strategyDuration = 0;
+  let startDate = null;
+  let endDate = null;
+  
+  if (trades.length > 0) {
+    const sortedTrades = [...trades].sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime());
+    startDate = new Date(sortedTrades[0].entryDate);
+    endDate = new Date(sortedTrades[sortedTrades.length - 1].exitDate);
+    strategyDuration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)); // en jours
+  }
+  
+  // Créer un objet d'archive avec les données actuelles
+  const archiveData = {
+    id: Date.now().toString(),
+    name: archiveName.value.trim(),
+    dateArchived: new Date(),
+    strategyDuration: strategyDuration,
+    startDate: startDate,
+    endDate: endDate,
+    initialCapital: tradingStore.initialCapital,
+    finalCapital: currentCapital.value,
+    totalTrades: tradingStore.trading.trades.length,
+    performance: performancePercent.value,
+    winRate: tradingStats.value.winRate,
+    breakEvenRate: tradingStats.value.breakEvenRate,
+    lossRate: tradingStats.value.lossRate,
+    maxDrawdown: tradingStats.value.maxDrawdown,
+    trades: [...tradingStore.trading.trades],
+    metrics: { ...tradingStore.trading.metrics },
+    equityCurve: [...tradingStore.trading.equityCurve]
+  };
+  
+  // Sauvegarder dans les archives (localStorage)
+  const existingArchives = JSON.parse(localStorage.getItem('quantify_strategy_archives') || '[]');
+  existingArchives.push(archiveData);
+  localStorage.setItem('quantify_strategy_archives', JSON.stringify(existingArchives));
+  
+  // Réinitialiser le capital initial au niveau actuel
+  tradingStore.updateInitialCapital(currentCapital.value);
+  
+  // Effacer tous les trades
+  tradingStore.trading.trades = [];
+  tradingStore.trading.equityCurve = [{
+    date: new Date(),
+    balance: currentCapital.value
+  }];
+  
+  // Réinitialiser les métriques
+  tradingStore.updateTradingMetrics();
+  tradingStore.saveToLocalStorage();
+  
+  // Déclencher la réactivité pour les archives
+  archivesUpdateTrigger.value++;
+  
+  // Fermer le modal et réinitialiser
+  showArchiveModal.value = false;
+  archiveName.value = '';
+  
+  alert(`Stratégie "${archiveData.name}" archivée avec succès !\n\nPerformance archivée : ${performancePercent.value.toFixed(2)}%\nNouvel échantillon démarré avec ${currentCapital.value.toFixed(2)}€`);
+};
+
+// Computed property pour les archives (réactive)
+const archives = computed(() => {
+  // Utiliser archivesUpdateTrigger pour forcer la réactivité
+  archivesUpdateTrigger.value;
+  return JSON.parse(localStorage.getItem('quantify_strategy_archives') || '[]');
+});
+
+// Fonction pour récupérer les archives (pour compatibilité)
+const getArchives = () => {
+  return archives.value;
+};
+
+// Fonction pour formater la durée de la stratégie
+const formatStrategyDuration = (duration: number) => {
+  if (duration === 0) return 'N/A';
+  if (duration === 1) return '1 jour';
+  if (duration < 7) return `${duration} jours`;
+  if (duration < 30) {
+    const weeks = Math.floor(duration / 7);
+    const days = duration % 7;
+    if (weeks === 1 && days === 0) return '1 semaine';
+    if (weeks === 1) return `1 semaine ${days} jour${days > 1 ? 's' : ''}`;
+    if (days === 0) return `${weeks} semaines`;
+    return `${weeks} semaines ${days} jour${days > 1 ? 's' : ''}`;
+  }
+  if (duration < 365) {
+    const months = Math.floor(duration / 30);
+    const days = duration % 30;
+    if (months === 1 && days === 0) return '1 mois';
+    if (months === 1) return `1 mois ${days} jour${days > 1 ? 's' : ''}`;
+    if (days === 0) return `${months} mois`;
+    return `${months} mois ${days} jour${days > 1 ? 's' : ''}`;
+  }
+  const years = Math.floor(duration / 365);
+  const months = Math.floor((duration % 365) / 30);
+  if (years === 1 && months === 0) return '1 an';
+  if (years === 1) return `1 an ${months} mois`;
+  if (months === 0) return `${years} ans`;
+  return `${years} ans ${months} mois`;
+};
+
+// Fonction pour supprimer une archive
+const deleteArchive = (archiveId: string, archiveName: string) => {
+  if (confirm(`Êtes-vous sûr de vouloir supprimer l'archive "${archiveName}" ?\n\nCette action est irréversible.`)) {
+    const currentArchives = JSON.parse(localStorage.getItem('quantify_strategy_archives') || '[]');
+    const filteredArchives = currentArchives.filter((archive: any) => archive.id !== archiveId);
+    localStorage.setItem('quantify_strategy_archives', JSON.stringify(filteredArchives));
+    
+    // Déclencher la réactivité
+    archivesUpdateTrigger.value++;
+    
+    alert(`Archive "${archiveName}" supprimée avec succès.`);
   }
 };
 
@@ -512,7 +655,7 @@ const baseChartOptions = {
       },
       title: {
         display: true,
-        text: 'Valeur (Points)',
+        text: 'Valeur (€)',
         color: 'var(--color-gray-700)',
         font: {
           size: 12,
@@ -618,16 +761,16 @@ const equityChartData = computed(() => {
     
     if (filteredSP500.length > 0) {
       // Adapter l'échelle du S&P 500 pour qu'elle corresponde visuellement à celle de la stratégie
-      // sans normaliser en base 100
+      // et convertir en euros pour une comparaison cohérente
       const firstSP500Price = filteredSP500[0].close;
       const firstStrategyBalance = tradingStore.trading.equityCurve[0].balance;
       
-      // Facteur d'échelle pour convertir les points S&P 500 en valeurs comparables à la stratégie
+      // Facteur d'échelle pour convertir les points S&P 500 en euros comparables à la stratégie
       const scaleFactor = firstStrategyBalance / firstSP500Price;
       
       benchmarkData = filteredSP500.map(point => ({
         date: new Date(point.date),
-        value: point.close * scaleFactor
+        value: point.close * scaleFactor // Valeur en euros
       }));
     }
   }
@@ -637,15 +780,15 @@ const equityChartData = computed(() => {
     labels: tradingStore.trading.equityCurve.map(point => formatDate(point.date)),
     datasets: [
       {
-        label: 'Stratégie',
-        data: tradingStore.trading.equityCurve.map(point => point.balance),
+        label: 'Stratégie (€)',
+        data: tradingStore.trading.equityCurve.map(point => point.balance), // Déjà en euros
         borderColor: '#4F46E5',
         backgroundColor: 'rgba(79, 70, 229, 0.1)',
         tension: 0.4,
         fill: true
       },
       {
-        label: 'S&P 500 (Échelle ajustée)',
+        label: 'S&P 500 (Équivalent €)',
         data: benchmarkData.length > 0 
           ? strategyDates.map(date => {
               // Trouver le point de benchmark le plus proche de cette date
@@ -1106,7 +1249,7 @@ const strategyChartData = computed(() => {
     return {
       labels: [],
       datasets: [{
-        label: 'Performance Stratégie de Trading',
+        label: 'Performance Stratégie de Trading (€)',
         data: [],
         borderColor: '#4F46E5',
         backgroundColor: 'rgba(79, 70, 229, 0.1)',
@@ -1116,19 +1259,13 @@ const strategyChartData = computed(() => {
     };
   }
   
-  // Normaliser pour avoir un indice de base à 100
-  const baseValue = tradingStore.trading.equityCurve[0].balance;
-  const normalizedData = tradingStore.trading.equityCurve.map(point => ({
-    date: point.date,
-    value: (point.balance / baseValue) * 100
-  }));
-  
+  // Utiliser directement les valeurs en euros au lieu de normaliser en base 100
   return {
-    labels: normalizedData.map(point => formatDate(point.date)),
+    labels: tradingStore.trading.equityCurve.map(point => formatDate(point.date)),
     datasets: [
       {
-        label: 'Performance Stratégie de Trading',
-        data: normalizedData.map(point => point.value),
+        label: 'Performance Stratégie de Trading (€)',
+        data: tradingStore.trading.equityCurve.map(point => point.balance),
         borderColor: '#4F46E5',
         backgroundColor: 'rgba(79, 70, 229, 0.1)',
         tension: 0.4,
@@ -1146,6 +1283,11 @@ const strategyPerformance = computed(() => {
   const lastValue = tradingStore.trading.equityCurve[tradingStore.trading.equityCurve.length - 1].balance;
   
   return ((lastValue - firstValue) / firstValue) * 100;
+});
+
+// Calcul de la surperformance par rapport au SP500 (Alpha)
+const alphaPerformance = computed(() => {
+  return strategyPerformance.value - sp500Performance.value;
 });
 
 // Graphique d'Alpha (écart de performance entre stratégie et S&P 500)
@@ -2021,14 +2163,27 @@ const monteCarloInterpretation = computed(() => {
   };
 });
 
-// Évolution des Win/Loss/BE au cours du temps
+// Évolution des Win/Loss/BE au cours du temps (incluant les archives)
 const winRateEvolutionData = computed(() => {
-  const trades = sortedTrades.value;
-  if (trades.length === 0) return { labels: [], datasets: [] };
+  // Récupérer les trades actuels et les archives
+  const currentTrades = sortedTrades.value;
+  const archives = getArchives();
+  
+  // Combiner tous les trades (actuels + archivés)
+  let allTrades: Trade[] = [...currentTrades];
+  
+  // Ajouter les trades des archives
+  archives.forEach((archive: any) => {
+    if (archive.trades && Array.isArray(archive.trades)) {
+      allTrades = [...allTrades, ...archive.trades];
+    }
+  });
+  
+  if (allTrades.length === 0) return { labels: [], datasets: [] };
   
   // Regrouper les trades par mois
   const tradesByMonth: Record<string, Trade[]> = {};
-  trades.forEach(trade => {
+  allTrades.forEach(trade => {
     const date = new Date(trade.entryDate);
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     if (!tradesByMonth[monthKey]) {
@@ -2045,6 +2200,7 @@ const winRateEvolutionData = computed(() => {
   const longWinRates: number[] = [];
   const shortWinRates: number[] = [];
   const profitFactors: number[] = [];
+  const strategyMarkers: string[] = []; // Pour marquer les changements de stratégie
   
   sortedMonths.forEach(month => {
     const monthTrades = tradesByMonth[month];
@@ -2062,7 +2218,15 @@ const winRateEvolutionData = computed(() => {
     winRates.push(monthTrades.length > 0 ? (wins / monthTrades.length) * 100 : 0);
     longWinRates.push(longTrades.length > 0 ? (longWins / longTrades.length) * 100 : 0);
     shortWinRates.push(shortTrades.length > 0 ? (shortWins / shortTrades.length) * 100 : 0);
-    profitFactors.push(totalLossAmount > 0 ? totalWinAmount / totalLossAmount : totalWinAmount > 0 ? Infinity : 0);
+    profitFactors.push(totalLossAmount > 0 ? totalWinAmount / totalLossAmount : totalWinAmount > 0 ? 999 : 0);
+    
+    // Vérifier si ce mois contient des trades d'archives (changement de stratégie)
+    const hasArchivedTrades = monthTrades.some(trade => {
+      return archives.some((archive: any) => 
+        archive.trades && archive.trades.some((archiveTrade: any) => archiveTrade.id === trade.id)
+      );
+    });
+    strategyMarkers.push(hasArchivedTrades ? 'archived' : 'current');
   });
   
   // Formater les étiquettes des mois (Jan 2023, Fév 2023, etc.)
@@ -2076,12 +2240,19 @@ const winRateEvolutionData = computed(() => {
     labels: formattedMonths,
     datasets: [
       {
-        label: 'Win Rate (%)',
+        label: 'Win Rate Global (%)',
         data: winRates,
         backgroundColor: 'rgba(75, 192, 192, 0.2)',
         borderColor: 'rgba(75, 192, 192, 1)',
         borderWidth: 2,
-        tension: 0.2
+        tension: 0.2,
+        pointBackgroundColor: strategyMarkers.map(marker => 
+          marker === 'archived' ? '#F59E0B' : 'rgba(75, 192, 192, 1)'
+        ),
+        pointBorderColor: strategyMarkers.map(marker => 
+          marker === 'archived' ? '#D97706' : 'rgba(75, 192, 192, 1)'
+        ),
+        pointRadius: strategyMarkers.map(marker => marker === 'archived' ? 6 : 4)
       },
       {
         label: 'Long Win Rate (%)',
@@ -2089,7 +2260,11 @@ const winRateEvolutionData = computed(() => {
         backgroundColor: 'rgba(54, 162, 235, 0.2)',
         borderColor: 'rgba(54, 162, 235, 1)',
         borderWidth: 2,
-        tension: 0.2
+        tension: 0.2,
+        pointBackgroundColor: strategyMarkers.map(marker => 
+          marker === 'archived' ? '#F59E0B' : 'rgba(54, 162, 235, 1)'
+        ),
+        pointRadius: strategyMarkers.map(marker => marker === 'archived' ? 6 : 4)
       },
       {
         label: 'Short Win Rate (%)',
@@ -2097,7 +2272,11 @@ const winRateEvolutionData = computed(() => {
         backgroundColor: 'rgba(255, 99, 132, 0.2)',
         borderColor: 'rgba(255, 99, 132, 1)',
         borderWidth: 2,
-        tension: 0.2
+        tension: 0.2,
+        pointBackgroundColor: strategyMarkers.map(marker => 
+          marker === 'archived' ? '#F59E0B' : 'rgba(255, 99, 132, 1)'
+        ),
+        pointRadius: strategyMarkers.map(marker => marker === 'archived' ? 6 : 4)
       },
       {
         label: 'Profit Factor',
@@ -2106,7 +2285,11 @@ const winRateEvolutionData = computed(() => {
         borderColor: 'rgba(255, 206, 86, 1)',
         borderWidth: 2,
         tension: 0.2,
-        yAxisID: 'y1'
+        yAxisID: 'y1',
+        pointBackgroundColor: strategyMarkers.map(marker => 
+          marker === 'archived' ? '#DC2626' : 'rgba(255, 206, 86, 1)'
+        ),
+        pointRadius: strategyMarkers.map(marker => marker === 'archived' ? 6 : 4)
       }
     ]
   };
@@ -2122,7 +2305,15 @@ const winRateEvolutionOptions = {
     },
     title: {
       display: true,
-      text: 'Évolution des Performances'
+      text: 'Évolution des Performances (Historique Complet)'
+    },
+    subtitle: {
+      display: true,
+      text: '🟡 Points orange = Stratégies archivées | 🔵 Points normaux = Stratégie actuelle',
+      font: {
+        size: 11
+      },
+      color: '#6B7280'
     },
     tooltip: {
       callbacks: {
@@ -2139,6 +2330,21 @@ const winRateEvolutionOptions = {
             }
           }
           return label;
+        },
+        afterLabel: function(context: any) {
+          // Ajouter une indication si c'est une période archivée
+          const archives = getArchives();
+          const monthLabel = context.label;
+          
+          // Vérifier si ce mois correspond à une archive
+          const isArchived = archives.some((archive: any) => {
+            if (!archive.dateArchived) return false;
+            const archiveDate = new Date(archive.dateArchived);
+            const archiveMonth = new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric' }).format(archiveDate);
+            return archiveMonth === monthLabel;
+          });
+          
+          return isArchived ? '📁 Période archivée' : '';
         }
       }
     }
@@ -2164,7 +2370,7 @@ const winRateEvolutionOptions = {
         text: 'Profit Factor'
       },
       min: 0,
-      max: 10 // Valeur fixe au lieu d'une fonction
+      max: 10
     }
   }
 };
@@ -2316,14 +2522,28 @@ const winRateEvolutionOptions = {
               </div>
             </div>
           </div>
-          <div class="flex justify-between sm:col-span-2">
-            <button @click="updateInitialCapital" class="inline-flex items-center px-3 py-1 text-xs font-medium rounded text-indigo-700 bg-indigo-100 hover:bg-indigo-200 transition-colors duration-150">
+          <div class="flex flex-wrap justify-center sm:justify-between sm:col-span-2 gap-2">
+            <button @click="updateInitialCapital" class="inline-flex items-center px-3 py-2 text-sm font-medium rounded text-indigo-700 bg-indigo-100 hover:bg-indigo-200 transition-colors duration-150">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               Mettre à jour
             </button>
-            <button @click="resetAll" class="inline-flex items-center px-3 py-1 text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 transition-colors duration-150">
+            <button 
+              @click="archiveStrategy" 
+              class="inline-flex items-center px-3 py-2 text-sm font-medium rounded transition-colors duration-150"
+              :class="tradingStore.trading.trades.length > 0 
+                ? 'text-amber-700 bg-amber-100 hover:bg-amber-200' 
+                : 'text-gray-400 bg-gray-100 cursor-not-allowed'"
+              :disabled="!tradingStore.trading.trades.length"
+              :title="tradingStore.trading.trades.length > 0 ? 'Archiver la période actuelle' : 'Aucun trade à archiver'"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8l6 6m0 0l6-6m-6 6V3m-9 5a2 2 0 002 2h10a2 2 0 002-2M7 19h10a2 2 0 002-2v-1a2 2 0 00-2-2H7a2 2 0 00-2 2v1a2 2 0 002 2z" />
+              </svg>
+              Archiver ({{ tradingStore.trading.trades.length }})
+            </button>
+            <button @click="resetAll" class="inline-flex items-center px-3 py-2 text-sm font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 transition-colors duration-150">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
@@ -2511,6 +2731,126 @@ const winRateEvolutionOptions = {
       <div v-if="showTradingStrategy" class="mt-6">
         <TradingStrategyPanel />
       </div>
+      
+      <!-- Bouton pour afficher/masquer les archives -->
+      <div class="flex justify-center mt-6">
+        <button 
+          @click="showArchives = !showArchives" 
+          class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-150"
+          :class="showArchives ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path v-if="showArchives" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+          {{ showArchives ? 'Masquer les archives' : 'Afficher les archives' }}
+          <span class="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-white bg-opacity-20">
+            {{ getArchives().length }}
+          </span>
+        </button>
+      </div>
+      
+      <!-- Archives de stratégies -->
+      <div v-if="showArchives" class="mt-6">
+        <div class="bg-white shadow rounded-lg p-6">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8l6 6m0 0l6-6m-6 6V3m-9 5a2 2 0 002 2h10a2 2 0 002-2M7 19h10a2 2 0 002-2v-1a2 2 0 00-2-2H7a2 2 0 00-2 2v1a2 2 0 002 2z" />
+            </svg>
+            Archives des Stratégies
+          </h2>
+          
+          <div v-if="archives.length === 0" class="text-center py-8">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+            <p class="text-gray-500">Aucune stratégie archivée</p>
+            <p class="text-sm text-gray-400 mt-1">Utilisez le bouton "Archiver" pour sauvegarder vos périodes de trading</p>
+          </div>
+          
+          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div 
+              v-for="archive in archives.slice().reverse()" 
+              :key="archive.id"
+              class="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-all duration-200"
+            >
+              <div class="flex justify-between items-start mb-3">
+                <h3 class="font-medium text-gray-900">{{ archive.name }}</h3>
+                <button 
+                  @click="deleteArchive(archive.id, archive.name)"
+                  class="text-red-500 hover:text-red-700 transition-colors"
+                  title="Supprimer l'archive"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div class="space-y-2 text-sm">
+                <!-- Durée de la stratégie -->
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Durée :</span>
+                  <span class="font-medium">{{ formatStrategyDuration(archive.strategyDuration || 0) }}</span>
+                </div>
+                
+                <!-- Nombre de trades -->
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Trades :</span>
+                  <span class="font-medium">{{ archive.totalTrades }}</span>
+                </div>
+                
+                <!-- Performance -->
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Performance :</span>
+                  <span class="font-medium" :class="archive.performance >= 0 ? 'text-green-600' : 'text-red-600'">
+                    {{ archive.performance >= 0 ? '+' : '' }}{{ archive.performance.toFixed(2) }}%
+                  </span>
+                </div>
+                
+                <!-- Win Rate -->
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Win Rate :</span>
+                  <span class="font-medium" :class="{
+                    'text-green-600': (archive.winRate || 0) >= 60,
+                    'text-blue-600': (archive.winRate || 0) >= 50 && (archive.winRate || 0) < 60,
+                    'text-yellow-600': (archive.winRate || 0) >= 40 && (archive.winRate || 0) < 50,
+                    'text-red-600': (archive.winRate || 0) < 40
+                  }">
+                    {{ (archive.winRate || 0).toFixed(1) }}%
+                  </span>
+                </div>
+                
+                <!-- BE Rate -->
+                <div class="flex justify-between">
+                  <span class="text-gray-600">BE Rate :</span>
+                  <span class="font-medium text-gray-700">{{ (archive.breakEvenRate || 0).toFixed(1) }}%</span>
+                </div>
+                
+                <!-- Loss Rate -->
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Loss Rate :</span>
+                  <span class="font-medium text-red-600">{{ (archive.lossRate || 0).toFixed(1) }}%</span>
+                </div>
+                
+                <!-- Drawdown Max -->
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Drawdown Max :</span>
+                  <span class="font-medium text-red-600">{{ (archive.maxDrawdown || 0).toFixed(2) }}%</span>
+                </div>
+                
+                <!-- Capital (section réduite) -->
+                <div class="pt-2 border-t border-gray-200">
+                  <div class="flex justify-between text-xs text-gray-500">
+                    <span>{{ archive.initialCapital.toFixed(0) }}€ → {{ archive.finalCapital.toFixed(0) }}€</span>
+                    <span>{{ new Date(archive.dateArchived).toLocaleDateString('fr-FR') }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     
     <!-- Bouton pour afficher/masquer le calendrier de trading -->
@@ -2620,6 +2960,33 @@ const winRateEvolutionOptions = {
         </h2>
         <div class="h-64 bg-gray-50 rounded-lg p-2 transition-all duration-300 hover:shadow-md">
           <Line :data="winRateEvolutionData" :options="winRateEvolutionOptions" />
+        </div>
+        <div class="mt-4 pt-4 border-t border-gray-200">
+          <div class="bg-blue-50 rounded-lg p-3">
+            <div class="flex items-start">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div class="text-sm">
+                <p class="font-medium text-blue-800 mb-1">Historique Complet des Stratégies</p>
+                <p class="text-blue-700">
+                  Ce graphique affiche l'évolution de vos performances sur toutes vos stratégies, 
+                  incluant les périodes archivées. Les points orange indiquent les mois où vous aviez 
+                  des stratégies archivées, permettant de visualiser votre progression globale dans le temps.
+                </p>
+                <div class="mt-2 flex items-center space-x-4 text-xs">
+                  <div class="flex items-center">
+                    <div class="w-3 h-3 bg-orange-400 rounded-full mr-1"></div>
+                    <span>Stratégies archivées</span>
+                  </div>
+                  <div class="flex items-center">
+                    <div class="w-3 h-3 bg-cyan-500 rounded-full mr-1"></div>
+                    <span>Stratégie actuelle</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -3549,6 +3916,121 @@ const winRateEvolutionOptions = {
             <button
               type="button"
               @click="showEditModal = false"
+              class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal d'Archivage -->
+    <div v-if="showArchiveModal" class="fixed z-10 inset-0 overflow-y-auto">
+      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+
+        <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+          <div>
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8l6 6m0 0l6-6m-6 6V3m-9 5a2 2 0 002 2h10a2 2 0 002-2M7 19h10a2 2 0 002-2v-1a2 2 0 00-2-2H7a2 2 0 00-2 2v1a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900 text-center mb-4">Archiver la Stratégie</h3>
+            
+            <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div class="ml-3">
+                  <p class="text-sm text-blue-700">
+                    Cette action va :
+                  </p>
+                  <ul class="mt-2 text-sm text-blue-700 list-disc list-inside space-y-1">
+                    <li>Sauvegarder {{ tradingStore.trading.trades.length }} trades dans les archives</li>
+                    <li>Réinitialiser le capital au niveau actuel ({{ currentCapital.toFixed(2) }}€)</li>
+                    <li>Effacer tous les trades pour repartir sur un nouvel échantillon</li>
+                  </ul>
+                  <p class="mt-2 text-sm text-blue-700 font-medium">
+                    Cette action est irréversible.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <label for="archive-name" class="block text-sm font-medium text-gray-700 mb-2">
+                Nom de l'archive
+              </label>
+              <input 
+                id="archive-name"
+                type="text" 
+                v-model="archiveName" 
+                placeholder="Ex: Stratégie Q1 2024, Test Breakout, etc."
+                class="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-amber-500 focus:border-amber-500 sm:text-sm"
+                @keyup.enter="confirmArchive"
+              />
+            </div>
+
+            <div class="bg-gray-50 rounded-lg p-3 mb-4">
+              <h4 class="text-sm font-medium text-gray-700 mb-3">Résumé de la période actuelle :</h4>
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Trades :</span>
+                  <span class="font-medium">{{ tradingStore.trading.trades.length }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Performance :</span>
+                  <span class="font-medium" :class="performancePercent >= 0 ? 'text-green-600' : 'text-red-600'">
+                    {{ performancePercent >= 0 ? '+' : '' }}{{ performancePercent.toFixed(2) }}%
+                  </span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Win Rate :</span>
+                  <span class="font-medium" :class="{
+                    'text-green-600': tradingStats.winRate >= 60,
+                    'text-blue-600': tradingStats.winRate >= 50 && tradingStats.winRate < 60,
+                    'text-yellow-600': tradingStats.winRate >= 40 && tradingStats.winRate < 50,
+                    'text-red-600': tradingStats.winRate < 40
+                  }">
+                    {{ tradingStats.winRate.toFixed(1) }}%
+                  </span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Drawdown Max :</span>
+                  <span class="font-medium text-red-600">{{ tradingStats.maxDrawdown.toFixed(2) }}%</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Capital initial :</span>
+                  <span class="font-medium">{{ tradingStore.initialCapital.toFixed(0) }}€</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Capital actuel :</span>
+                  <span class="font-medium">{{ currentCapital.toFixed(0) }}€</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+            <button
+              type="button"
+              @click="confirmArchive"
+              :disabled="!archiveName.trim()"
+              class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 sm:col-start-2 sm:text-sm transition-colors duration-150"
+              :class="archiveName.trim() 
+                ? 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500' 
+                : 'bg-gray-400 cursor-not-allowed'"
+            >
+              Archiver
+            </button>
+            <button
+              type="button"
+              @click="showArchiveModal = false; archiveName = ''"
               class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm"
             >
               Annuler

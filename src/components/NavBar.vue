@@ -15,7 +15,7 @@ const authStore = useAuthStore();
 const showExternalLinks = ref(false);
 
 const navigation = [
-  { name: 'Dashboard', href: '/' },
+  { name: 'Dashboard', href: '/dashboard' },
   { name: 'Trades', href: '/trades' },
   { name: 'Crypto', href: '/crypto' },
   { name: 'Long Term', href: '/long-term' },
@@ -95,7 +95,9 @@ function handleLogout() {
               Déconnexion
             </button>
             
+            <!-- Navigation principale - visible seulement si connecté -->
             <RouterLink 
+              v-if="authStore.isAuthenticated"
               v-for="item in navigation" 
               :key="item.name" 
               :to="item.href" 
@@ -110,7 +112,8 @@ function handleLogout() {
             </RouterLink>
           </div>
         </div>
-        <div class="flex items-center">
+        <!-- Liens externes - visible seulement si connecté -->
+        <div v-if="authStore.isAuthenticated" class="flex items-center">
           <div class="relative">
             <button 
               @click="toggleExternalLinks"
@@ -177,48 +180,51 @@ function handleLogout() {
           </div>
         </button>
 
-        <router-link
-          to="/"
-          class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
-          :class="[route.path === '/' ? 'bg-primary-50 border-primary-500 text-primary-700' : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700']"
-        >
-          Tableau de Bord
-        </router-link>
-        <router-link
-          to="/trades"
-          class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
-          :class="[route.path === '/trades' ? 'bg-primary-50 border-primary-500 text-primary-700' : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700']"
-        >
-          Trades
-        </router-link>
-        <router-link
-          to="/crypto"
-          class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
-          :class="[route.path === '/crypto' ? 'bg-primary-50 border-primary-500 text-primary-700' : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700']"
-        >
-          Crypto
-        </router-link>
-        <router-link
-          to="/long-term"
-          class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
-          :class="[route.path === '/long-term' ? 'bg-primary-50 border-primary-500 text-primary-700' : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700']"
-        >
-          Long Terme
-        </router-link>
-        <router-link
-          to="/resources"
-          class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
-          :class="[route.path === '/resources' ? 'bg-primary-50 border-primary-500 text-primary-700' : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700']"
-        >
-          Ressources
-        </router-link>
-        <router-link
-          to="/macro"
-          class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
-          :class="[route.path === '/macro' ? 'bg-primary-50 border-primary-500 text-primary-700' : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700']"
-        >
-          Macro
-        </router-link>
+        <!-- Navigation mobile - visible seulement si connecté -->
+        <template v-if="authStore.isAuthenticated">
+          <router-link
+            to="/dashboard"
+            class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+            :class="[route.path === '/dashboard' ? 'bg-primary-50 border-primary-500 text-primary-700' : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700']"
+          >
+            Tableau de Bord
+          </router-link>
+          <router-link
+            to="/trades"
+            class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+            :class="[route.path === '/trades' ? 'bg-primary-50 border-primary-500 text-primary-700' : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700']"
+          >
+            Trades
+          </router-link>
+          <router-link
+            to="/crypto"
+            class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+            :class="[route.path === '/crypto' ? 'bg-primary-50 border-primary-500 text-primary-700' : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700']"
+          >
+            Crypto
+          </router-link>
+          <router-link
+            to="/long-term"
+            class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+            :class="[route.path === '/long-term' ? 'bg-primary-50 border-primary-500 text-primary-700' : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700']"
+          >
+            Long Terme
+          </router-link>
+          <router-link
+            to="/resources"
+            class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+            :class="[route.path === '/resources' ? 'bg-primary-50 border-primary-500 text-primary-700' : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700']"
+          >
+            Ressources
+          </router-link>
+          <router-link
+            to="/macro"
+            class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+            :class="[route.path === '/macro' ? 'bg-primary-50 border-primary-500 text-primary-700' : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700']"
+          >
+            Macro
+          </router-link>
+        </template>
       </div>
     </div>
 

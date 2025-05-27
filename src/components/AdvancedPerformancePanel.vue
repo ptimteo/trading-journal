@@ -27,19 +27,37 @@ const metrics = computed(() => {
   // Recalculer les métriques de base à partir des trades actuels
   const baseMetrics = calculatePerformanceMetrics(trades);
   
-  // Fusionner avec nos valeurs calculées
+  // Récupérer les métriques avancées stockées dans le store
+  const storeMetrics = tradingStore.tradingMetrics;
+  
+  // Fusionner avec nos valeurs calculées en privilégiant les valeurs du store pour les métriques avancées
   const adjustedMetrics = {
     ...baseMetrics,
     pureWinRate: calculatedPureWinRate, // Forcer l'utilisation de notre calcul
-    globalWinRate: tradingStore.tradingMetrics.winRateGlobal,
+    globalWinRate: storeMetrics.winRateGlobal,
     breakEvenRate: breakEvenTrades.length > 0 ? (breakEvenTrades.length / trades.length) * 100 : 0,
     shortDurationWinRate: baseMetrics.shortDurationWinRate + baseMetrics.shortDurationBreakEvenRate,
     mediumDurationWinRate: baseMetrics.mediumDurationWinRate + baseMetrics.mediumDurationBreakEvenRate,
     longDurationWinRate: baseMetrics.longDurationWinRate + baseMetrics.longDurationBreakEvenRate,
-    veryLongDurationWinRate: baseMetrics.veryLongDurationWinRate + baseMetrics.veryLongDurationBreakEvenRate
+    veryLongDurationWinRate: baseMetrics.veryLongDurationWinRate + baseMetrics.veryLongDurationBreakEvenRate,
+    // Utiliser les valeurs avancées du store si elles existent, sinon celles calculées
+    averageMonthlyPerformance: storeMetrics.averageMonthlyPerformance !== undefined ? 
+      storeMetrics.averageMonthlyPerformance : baseMetrics.averageMonthlyPerformance,
+    annualizedReturn: storeMetrics.annualizedReturn !== undefined ? 
+      storeMetrics.annualizedReturn : baseMetrics.annualizedReturn,
+    returnVolatility: storeMetrics.returnVolatility !== undefined ? 
+      storeMetrics.returnVolatility : baseMetrics.returnVolatility,
+    valueAtRisk95: storeMetrics.valueAtRisk95 !== undefined ? 
+      storeMetrics.valueAtRisk95 : baseMetrics.valueAtRisk95,
+    valueAtRisk99: storeMetrics.valueAtRisk99 !== undefined ? 
+      storeMetrics.valueAtRisk99 : baseMetrics.valueAtRisk99,
+    conditionalVaR95: storeMetrics.conditionalVaR95 !== undefined ? 
+      storeMetrics.conditionalVaR95 : baseMetrics.conditionalVaR95,
+    conditionalVaR99: storeMetrics.conditionalVaR99 !== undefined ? 
+      storeMetrics.conditionalVaR99 : baseMetrics.conditionalVaR99
   };
   
-  console.log('Métriques ajustées (win rates):', {
+  console.log('Métriques ajustées avec valeurs du store:', {
     calculatedPureWinRate,
     winningTrades: winningTrades.length,
     totalTrades: trades.length,
@@ -48,7 +66,10 @@ const metrics = computed(() => {
     globalWinRate: adjustedMetrics.globalWinRate,
     breakEvenRate: adjustedMetrics.breakEvenRate,
     storeWinRateGlobal: tradingStore.tradingMetrics.winRateGlobal,
-    storeWinRatePure: tradingStore.tradingMetrics.winRatePure
+    storeWinRatePure: tradingStore.tradingMetrics.winRatePure,
+    averageMonthlyPerformance: adjustedMetrics.averageMonthlyPerformance,
+    annualizedReturn: adjustedMetrics.annualizedReturn,
+    returnVolatility: adjustedMetrics.returnVolatility
   });
   
   return adjustedMetrics;
@@ -193,58 +214,68 @@ const calculateBenchmarkMetrics = () => {
 // Récupérer les données du benchmark à l'initialisation du composant
 onMounted(async () => {
   if (tradingStore.trading.trades.length > 0) {
-    // Calculer le retour total (en pourcentage)
-    totalReturnValue.value = tradingStore.trading.trades.reduce((sum, trade) => sum + trade.profitLoss, 0);
-    // Calculer l'alpha par rapport au S&P500 (fonction asynchrone)
-    alphaValue.value = await calculateAlpha(tradingStore.trading.trades, totalReturnValue.value);
+    // Forcer le recalcul des métriques avec les nouvelles formules
+    await forceRefreshMetrics();
     
     // Récupérer les données du S&P 500
     fetchSP500Data();
-    
-    // Log des valeurs VaR calculées pour vérification
-    console.log("VaR (95%):", metrics.value.valueAtRisk95.toFixed(2) + "%");
-    console.log("VaR (99%):", metrics.value.valueAtRisk99.toFixed(2) + "%");
-    console.log("CVaR (95%):", metrics.value.conditionalVaR95.toFixed(2) + "%");
-    console.log("CVaR (99%):", metrics.value.conditionalVaR99.toFixed(2) + "%");
-    
-    // Mettre à jour les valeurs VaR dans le store
-    tradingStore.setAdvancedMetrics({
-      globalWinRate: metrics.value.globalWinRate,
-      valueAtRisk95: metrics.value.valueAtRisk95,
-      valueAtRisk99: metrics.value.valueAtRisk99,
-      conditionalVaR95: metrics.value.conditionalVaR95,
-      conditionalVaR99: metrics.value.conditionalVaR99
-    });
   }
 });
 
+// Fonction pour forcer la mise à jour des métriques avec les nouvelles formules
+const forceRefreshMetrics = async () => {
+  console.log("Forçage du recalcul des métriques avec les formules corrigées...");
+  
+  // Calculer le retour total (en pourcentage)
+  totalReturnValue.value = tradingStore.trading.trades.reduce((sum, trade) => sum + trade.profitLoss, 0);
+  // Calculer l'alpha par rapport au S&P500 (fonction asynchrone)
+  alphaValue.value = await calculateAlpha(tradingStore.trading.trades, totalReturnValue.value);
+  
+  // Recalculer les métriques de performance complètes
+  const updatedMetrics = calculatePerformanceMetrics(tradingStore.trading.trades);
+  
+  // Log des valeurs calculées pour vérification
+  console.log("Métriques recalculées:");
+  console.log("VaR (95%):", updatedMetrics.valueAtRisk95.toFixed(2) + "%");
+  console.log("VaR (99%):", updatedMetrics.valueAtRisk99.toFixed(2) + "%");
+  console.log("CVaR (95%):", updatedMetrics.conditionalVaR95.toFixed(2) + "%");
+  console.log("CVaR (99%):", updatedMetrics.conditionalVaR99.toFixed(2) + "%");
+  console.log("Moyenne mensuelle:", updatedMetrics.averageMonthlyPerformance.toFixed(2) + "%");
+  console.log("Rendement annualisé:", updatedMetrics.annualizedReturn.toFixed(2) + "%");
+  console.log("Volatilité:", updatedMetrics.returnVolatility.toFixed(2) + "%");
+  console.log("Durée de la stratégie (jours):", updatedMetrics.strategyDuration);
+  console.log("Rendement total:", totalReturnValue.value.toFixed(2) + "%");
+  
+  // Mettre à jour les valeurs avancées dans le store
+  tradingStore.setAdvancedMetrics({
+    globalWinRate: updatedMetrics.globalWinRate,
+    valueAtRisk95: updatedMetrics.valueAtRisk95,
+    valueAtRisk99: updatedMetrics.valueAtRisk99,
+    conditionalVaR95: updatedMetrics.conditionalVaR95,
+    conditionalVaR99: updatedMetrics.conditionalVaR99,
+    averageMonthlyPerformance: updatedMetrics.averageMonthlyPerformance,
+    annualizedReturn: updatedMetrics.annualizedReturn,
+    returnVolatility: updatedMetrics.returnVolatility
+  });
+  
+  return updatedMetrics;
+};
+
 // Observer les changements dans les trades pour recalculer les métriques
 watch(
-  () => tradingStore.trading.trades.length,
-  async () => {
-    if (tradingStore.trading.trades.length > 0) {
-      // Recalculer le retour total
-      totalReturnValue.value = tradingStore.trading.trades.reduce((sum, trade) => sum + trade.profitLoss, 0);
-      // Recalculer l'alpha
-      alphaValue.value = await calculateAlpha(tradingStore.trading.trades, totalReturnValue.value);
+  () => tradingStore.trading.trades,
+  async (newTrades) => {
+    if (newTrades.length > 0) {
+      // Utiliser la fonction de rafraîchissement des métriques
+      await forceRefreshMetrics();
       
-      // Log des nouvelles valeurs VaR pour vérification
-      console.log("Trades mis à jour. Nouvelles valeurs:");
-      console.log("VaR (95%):", metrics.value.valueAtRisk95.toFixed(2) + "%");
-      console.log("VaR (99%):", metrics.value.valueAtRisk99.toFixed(2) + "%");
-      console.log("CVaR (95%):", metrics.value.conditionalVaR95.toFixed(2) + "%");
-      console.log("CVaR (99%):", metrics.value.conditionalVaR99.toFixed(2) + "%");
-      
-      // Mettre à jour les valeurs VaR dans le store
-      tradingStore.setAdvancedMetrics({
-        globalWinRate: metrics.value.globalWinRate,
-        valueAtRisk95: metrics.value.valueAtRisk95,
-        valueAtRisk99: metrics.value.valueAtRisk99,
-        conditionalVaR95: metrics.value.conditionalVaR95,
-        conditionalVaR99: metrics.value.conditionalVaR99
-      });
+      // Si le benchmark a été chargé, recalculer les métriques du benchmark également
+      if (sp500Data.value.length > 0) {
+        calculateBenchmarkMetrics();
+      }
     }
-  }
+  },
+  { deep: true } // Surveiller les changements profonds dans le tableau de trades
 );
 
 // Calcul du Beta (Volatilité relative par rapport au marché)
@@ -369,7 +400,16 @@ const formatAlpha = (value: number) => {
 
 <template>
   <div class="bg-white shadow-lg rounded-xl p-6">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">Performance Avancée</h2>
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900 text-center">Performance Avancée</h2>
+      <button 
+        @click="forceRefreshMetrics" 
+        class="text-sm font-medium px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+        title="Forcer le recalcul des métriques de performance"
+      >
+        Recalculer les métriques
+      </button>
+    </div>
     
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <!-- Colonne 1: Vue d'ensemble et taux de réussite -->
