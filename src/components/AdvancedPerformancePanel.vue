@@ -96,18 +96,59 @@ const fetchSP500Data = async () => {
   benchmarkError.value = '';
   
   try {
-    const res = await fetch('http://localhost:3000/sp500');
-    if (!res.ok) {
-      throw new Error(`Erreur HTTP: ${res.status}`);
+    // Obtenir les dates de début et fin de la stratégie
+    if (tradingStore.trading.trades.length === 0) {
+      benchmarkError.value = "Aucun trade disponible pour définir la période";
+      return;
     }
     
-    const json = await res.json();
+    const sortedTrades = [...tradingStore.trading.trades].sort((a, b) => 
+      new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime()
+    );
     
-    // Formatage simplifié : on garde seulement la date et la clôture
-    sp500Data.value = json.map((point: any) => ({
-      date: point.date.split('T')[0],
-      close: point.close
-    }));
+    const firstTradeDate = new Date(sortedTrades[0].entryDate);
+    const lastTradeDate = new Date(sortedTrades[sortedTrades.length - 1].exitDate);
+    
+    // Convertir en timestamps pour Yahoo Finance
+    const start = Math.floor(firstTradeDate.getTime() / 1000);
+    const end = Math.floor(lastTradeDate.getTime() / 1000);
+    
+    // URL pour les données du S&P500 (^GSPC)
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?period1=${start}&period2=${end}&interval=1d`;
+    
+    // Configuration des headers
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    };
+    
+    // Faire la requête avec fetch
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.chart || !data.chart.result || !data.chart.result[0]) {
+      throw new Error('Données invalides pour S&P500');
+    }
+    
+    const result = data.chart.result[0];
+    const timestamps = result.timestamp;
+    const quotes = result.indicators.quote[0];
+    const closePrices = quotes.close;
+    
+    if (!closePrices || closePrices.length < 2) {
+      throw new Error('Pas assez de données de prix pour calculer la performance');
+    }
+    
+    // Formatage des données
+    sp500Data.value = timestamps.map((timestamp: number, index: number) => ({
+      date: new Date(timestamp * 1000).toISOString().split('T')[0],
+      close: closePrices[index]
+    })).filter((point: any) => point.close !== null && point.close !== undefined);
+    
+    console.log(`Données S&P500 récupérées: ${sp500Data.value.length} points de ${sp500Data.value[0]?.date} à ${sp500Data.value[sp500Data.value.length - 1]?.date}`);
     
     // Calcul des métriques du benchmark
     if (sp500Data.value.length > 0) {
@@ -117,6 +158,45 @@ const fetchSP500Data = async () => {
   } catch (err: any) {
     console.error('Erreur de récupération du S&P 500:', err);
     benchmarkError.value = `Erreur de récupération: ${err.message}`;
+    
+    // En cas d'erreur, essayer de calculer une performance approximative
+    try {
+      console.log('Tentative de calcul approximatif de la performance S&P500...');
+      
+      const sortedTrades = [...tradingStore.trading.trades].sort((a, b) => 
+        new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime()
+      );
+      
+      // Utiliser une performance approximative du S&P500 (environ 10% par an)
+      const strategyDurationDays = metrics.value.strategyDuration;
+      const annualizedSP500Return = 0.10; // 10% par an
+      const totalSP500Return = (Math.pow(1 + annualizedSP500Return, strategyDurationDays / 365) - 1) * 100;
+      
+      // Créer des données simulées
+      const dailyReturn = Math.pow(1 + totalSP500Return / 100, 1 / strategyDurationDays) - 1;
+      
+      sp500Data.value = [];
+      let currentPrice = 4000; // Prix de base arbitraire
+      const startDate = new Date(sortedTrades[0].entryDate);
+      
+      for (let i = 0; i <= strategyDurationDays; i++) {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + i);
+        
+        sp500Data.value.push({
+          date: date.toISOString().split('T')[0],
+          close: currentPrice
+        });
+        
+        currentPrice *= (1 + dailyReturn);
+      }
+      
+      calculateBenchmarkMetrics();
+      benchmarkError.value = 'Données simulées basées sur la performance historique moyenne du S&P500 (~10% par an)';
+    } catch (fallbackErr) {
+      console.error('Erreur de fallback:', fallbackErr);
+      benchmarkError.value = 'Impossible de récupérer les données du S&P500';
+    }
   } finally {
     isLoadingBenchmark.value = false;
   }
@@ -636,19 +716,25 @@ const formatAlpha = (value: number) => {
       <div class="space-y-6">
         <!-- Benchmark Comparison - Maintenant en première position dans la colonne 3 -->
         <div class="bg-gray-50 rounded-lg shadow p-4">
-          <h3 class="text-lg font-semibold text-gray-900 border-b pb-2 mb-4 flex justify-between items-center">
-            <span>Comparaison S&P 500</span>
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Comparaison au S&P 500</h3>
             <button 
               @click="fetchSP500Data" 
-              class="text-xs font-medium px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
               :disabled="isLoadingBenchmark"
+              class="text-xs font-medium px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Recharger les données du S&P 500"
             >
-              {{ isLoadingBenchmark ? 'Chargement...' : 'Rafraîchir' }}
+              {{ isLoadingBenchmark ? '⏳' : '🔄' }} Recharger S&P500
             </button>
-          </h3>
+          </div>
           
-          <div v-if="benchmarkError" class="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
-            {{ benchmarkError }}
+          <div v-if="benchmarkError" class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div class="flex items-center">
+              <svg class="w-4 h-4 text-yellow-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+              </svg>
+              <span class="text-xs text-yellow-800">{{ benchmarkError }}</span>
+            </div>
           </div>
           
           <div class="overflow-x-auto">
@@ -749,14 +835,30 @@ const formatAlpha = (value: number) => {
               </tbody>
             </table>
             <p v-if="sp500Data.length === 0 && !isLoadingBenchmark && !benchmarkError" class="text-xs text-gray-500 mt-2 text-center italic">
-              Données du benchmark non disponibles. Utilisez le bouton pour récupérer les données du S&P 500.
+              Données du benchmark non disponibles. Utilisez le bouton "🔄 Recharger S&P500" pour récupérer les données.
             </p>
-            <p v-if="isLoadingBenchmark" class="text-xs text-blue-500 mt-2 text-center">
-              Chargement des données du S&P 500...
-            </p>
-            <p v-if="sp500Data.length > 0 && !benchmarkError" class="text-xs text-green-500 mt-2 text-center">
-              {{ sp500Data.length }} points chargés ({{ sp500Data[0].date }} à {{ sp500Data[sp500Data.length - 1].date }})
-            </p>
+            <div v-if="isLoadingBenchmark" class="mt-2 text-center">
+              <div class="inline-flex items-center text-xs text-blue-600">
+                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Récupération des données du S&P 500 via Yahoo Finance...
+              </div>
+            </div>
+            <div v-if="sp500Data.length > 0 && !isLoadingBenchmark" class="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+              <div class="flex items-center justify-center">
+                <svg class="w-4 h-4 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                </svg>
+                <span class="text-xs text-green-800 font-medium">
+                  {{ sp500Data.length }} points S&P500 chargés
+                </span>
+              </div>
+              <p class="text-xs text-green-700 text-center mt-1">
+                Période: {{ sp500Data[0]?.date }} → {{ sp500Data[sp500Data.length - 1]?.date }}
+              </p>
+            </div>
           </div>
         </div>
         

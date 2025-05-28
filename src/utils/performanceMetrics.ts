@@ -149,27 +149,39 @@ export async function calculateAlpha(trades: Trade[], totalReturn: number): Prom
  * @returns La VaR en pourcentage du capital
  */
 export function calculateVaR(trades: Trade[], confidenceLevel: number): number {
-  // Minimum 3 trades pour avoir un échantillon minimal
-  if (trades.length < 3) {
-    console.warn(`Pas assez de trades (${trades.length}) pour une estimation fiable de la VaR. Minimum 3 requis.`);
+  // Minimum 2 trades pour avoir un échantillon minimal (réduit de 3 à 2)
+  if (trades.length < 2) {
+    console.warn(`Pas assez de trades (${trades.length}) pour une estimation fiable de la VaR. Minimum 2 requis.`);
     return 0;
   }
   
   // Extraire les rendements des trades et assurer qu'ils sont exprimés en pourcentage
   const returns = trades.map(trade => trade.profitLoss);
   console.log(`Calcul VaR (${confidenceLevel * 100}%) avec ${returns.length} trades.`);
+  console.log(`Rendements des trades:`, returns.slice(0, 10), returns.length > 10 ? '...' : '');
   
   // Trier les rendements par ordre croissant
   returns.sort((a, b) => a - b);
+  console.log(`Rendements triés (premiers 10):`, returns.slice(0, 10), returns.length > 10 ? '...' : '');
   
   // Calculer l'indice correspondant au niveau de confiance
   const index = Math.floor(returns.length * (1 - confidenceLevel));
+  console.log(`Indice calculé: ${index} pour ${returns.length} trades et niveau de confiance ${confidenceLevel}`);
   
   // Vérification et ajustement de l'indice pour éviter les erreurs
   const safeIndex = Math.max(0, Math.min(index, returns.length - 1));
   
   if (index !== safeIndex) {
     console.warn(`Indice VaR ajusté de ${index} à ${safeIndex} pour rester dans les limites valides.`);
+  }
+  
+  // Cas spécial : si tous les trades sont positifs ou nuls
+  if (returns[0] >= 0) {
+    console.log(`Tous les trades sont positifs ou nuls. VaR sera basée sur le plus petit gain.`);
+    // Dans ce cas, la VaR est le plus petit gain (ou 0 si le plus petit est 0)
+    const var_value = Math.max(0, returns[0]);
+    console.log(`VaR (${confidenceLevel * 100}%) calculée (tous trades positifs): ${var_value.toFixed(2)}%`);
+    return var_value;
   }
   
   // La VaR est la perte maximale attendue au niveau de confiance spécifié
@@ -187,26 +199,38 @@ export function calculateVaR(trades: Trade[], confidenceLevel: number): number {
  * @returns La CVaR en pourcentage du capital
  */
 export function calculateConditionalVaR(trades: Trade[], confidenceLevel: number): number {
-  // Minimum 3 trades pour avoir un échantillon minimal
-  if (trades.length < 3) {
-    console.warn(`Pas assez de trades (${trades.length}) pour une estimation fiable de la CVaR. Minimum 3 requis.`);
+  // Minimum 2 trades pour avoir un échantillon minimal (réduit de 3 à 2)
+  if (trades.length < 2) {
+    console.warn(`Pas assez de trades (${trades.length}) pour une estimation fiable de la CVaR. Minimum 2 requis.`);
     return 0;
   }
   
   // Extraire les rendements des trades
   const returns = trades.map(trade => trade.profitLoss);
+  console.log(`Calcul CVaR (${confidenceLevel * 100}%) avec ${returns.length} trades.`);
   
   // Trier les rendements par ordre croissant
   returns.sort((a, b) => a - b);
   
   // Calculer l'indice correspondant au niveau de confiance
   const index = Math.floor(returns.length * (1 - confidenceLevel));
+  console.log(`CVaR - Indice calculé: ${index} pour ${returns.length} trades`);
   
   // Vérification et ajustement de l'indice pour éviter les erreurs
   const safeIndex = Math.max(1, Math.min(index, returns.length - 1));
   
   if (index !== safeIndex) {
     console.warn(`Indice CVaR ajusté de ${index} à ${safeIndex} pour rester dans les limites valides.`);
+  }
+  
+  // Cas spécial : si tous les trades sont positifs ou nuls
+  if (returns[0] >= 0) {
+    console.log(`Tous les trades sont positifs ou nuls. CVaR sera basée sur les plus petits gains.`);
+    // Dans ce cas, prendre la moyenne des plus petits gains
+    const worstReturns = returns.slice(0, Math.max(1, safeIndex));
+    const cvar_value = worstReturns.reduce((sum, r) => sum + r, 0) / worstReturns.length;
+    console.log(`CVaR (${confidenceLevel * 100}%) calculée (tous trades positifs): ${cvar_value.toFixed(2)}%`);
+    return Math.max(0, cvar_value);
   }
   
   // Sélectionner les rendements en-dessous du seuil de VaR
@@ -227,6 +251,7 @@ export function calculateConditionalVaR(trades: Trade[], confidenceLevel: number
   
   const cvar_value = Math.abs(worstReturns.reduce((sum, r) => sum + r, 0) / worstReturns.length);
   console.log(`CVaR (${confidenceLevel * 100}%) calculée: ${cvar_value.toFixed(2)}% (moyenne des ${worstReturns.length} pires trades)`);
+  console.log(`Pires rendements utilisés:`, worstReturns);
   return cvar_value;
 }
 
