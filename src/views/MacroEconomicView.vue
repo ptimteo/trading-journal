@@ -39,7 +39,12 @@ type IndicatorKey =
   | "gold-silver-ratio"
   | "housing-starts"
   | "building-permits"
-  | "oil";
+  | "oil"
+  | "adp-usa"
+  | "job-openings"
+  | "treasuries"
+  | "unemployment-claims"
+  | "carry-trade";
 
 // Récupérer l'objet route
 const route = useRoute();
@@ -315,9 +320,9 @@ const retailSalesData = ref<{
   values: number[];
   lastUpdated: string;
 }>({
-  dates: [],
-  values: [],
-  lastUpdated: ''
+  dates: ['Jan 2023', 'Fév 2023', 'Mar 2023', 'Avr 2023', 'Mai 2023', 'Juin 2023', 'Juil 2023', 'Août 2023', 'Sep 2023', 'Oct 2023', 'Nov 2023', 'Déc 2023', 'Jan 2024', 'Fév 2024', 'Mar 2024', 'Avr 2024'],
+  values: [0.3, -0.2, 0.8, 0.5, -0.1, 0.2, 0.6, 0.4, 0.1, -0.3, 0.8, 0.3, -0.2, 0.4, 0.3, 0.7],
+  lastUpdated: '2024-04-15'
 });
 
 // État de chargement spécifique pour les données des ventes au détail
@@ -1697,7 +1702,8 @@ const economicIndicators = ref<Record<IndicatorKey, any>>({
       labels: ['Jan', 'Fév', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc', 'Jan', 'Fév', 'Mars', 'Avr'],
       values: {
         'JPY-USD': [4.80, 4.85, 4.90, 4.92, 4.95, 4.98, 5.00, 5.02, 5.03, 5.04, 5.05, 5.06, 5.08, 5.09, 5.08, 5.10],
-        'EUR-USD': [1.90, 1.88, 1.86, 1.85, 1.84, 1.83, 1.82, 1.81, 1.80, 1.80, 1.79, 1.78, 1.77, 1.76, 1.76, 1.75]
+        'EUR-USD': [1.90, 1.88, 1.86, 1.85, 1.84, 1.83, 1.82, 1.81, 1.80, 1.80, 1.79, 1.78, 1.77, 1.76, 1.76, 1.75],
+        'CHF-USD': [3.20, 3.18, 3.16, 3.15, 3.14, 3.13, 3.12, 3.11, 3.10, 3.10, 3.09, 3.08, 3.07, 3.06, 3.06, 3.05]
       }
     },
     impact: 'Indicateur des flux de capitaux internationaux et des opportunités d\'arbitrage entre les marchés financiers'
@@ -1771,6 +1777,67 @@ const economicIndicators = ref<Record<IndicatorKey, any>>({
       values: [1.30, 1.32, 1.35, 1.38, 1.36, 1.37, 1.41, 1.44, 1.39, 1.42, 1.38, 1.36, 1.37, 1.39, 1.40, 1.42]
     },
     impact: 'Indicateur avancé de la construction résidentielle future'
+  },
+  'adp-usa': {
+    title: 'Rapport ADP sur l\'emploi',
+    description: 'Estimation des créations d\'emplois dans le secteur privé',
+    value: 183,
+    unit: 'milliers',
+    period: 'mensuel',
+    previousValue: 155,
+    trend: 'up',
+    chart: {
+      labels: ['Jan', 'Fév', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc', 'Jan', 'Fév', 'Mars', 'Avr'],
+      values: [145, 148, 160, 170, 185, 175, 155, 140, 150, 165, 158, 145, 148, 152, 155, 183]
+    },
+    impact: 'Indicateur préliminaire des tendances du marché du travail'
+  },
+  'job-openings': {
+    title: 'Offres d\'emploi',
+    description: 'Nombre d\'offres d\'emploi ouvertes',
+    value: 8.5,
+    unit: 'millions',
+    period: 'mensuel',
+    previousValue: 8.7,
+    trend: 'down',
+    chart: {
+      labels: ['Jan', 'Fév', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc', 'Jan', 'Fév', 'Mars', 'Avr'],
+      values: [10.8, 10.6, 10.3, 10.0, 9.8, 9.6, 9.4, 9.2, 9.0, 8.9, 8.8, 8.7, 8.7, 8.6, 8.6, 8.5]
+    },
+    impact: 'Indicateur de la demande de main-d\'œuvre et de la tension sur le marché du travail'
+  },
+  'treasuries': {
+    title: 'Rendements des bons du Trésor',
+    description: 'Taux d\'intérêt des obligations d\'État américaines',
+    value: { '2y': 4.55, '5y': 4.32, '10y': 4.21, '30y': 4.35 },
+    unit: '%',
+    period: 'actuel',
+    previousValue: { '2y': 4.60, '5y': 4.35, '10y': 4.25, '30y': 4.38 },
+    trend: 'down',
+    chart: {
+      labels: ['Jan', 'Fév', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc', 'Jan', 'Fév', 'Mars', 'Avr'],
+      values: {
+        '2y': [4.20, 4.30, 4.35, 4.40, 4.45, 4.50, 4.55, 4.60, 4.65, 4.70, 4.65, 4.62, 4.60, 4.58, 4.57, 4.55],
+        '5y': [3.90, 4.00, 4.05, 4.10, 4.15, 4.20, 4.25, 4.30, 4.35, 4.40, 4.38, 4.37, 4.35, 4.33, 4.32, 4.30],
+        '10y': [3.80, 3.90, 3.95, 4.00, 4.05, 4.10, 4.15, 4.20, 4.25, 4.30, 4.28, 4.27, 4.25, 4.23, 4.22, 4.21],
+        '30y': [3.70, 3.80, 3.85, 3.90, 3.95, 4.00, 4.05, 4.10, 4.15, 4.20, 4.18, 4.17, 4.15, 4.13, 4.12, 4.10]
+      }
+    },
+    impact: 'Indicateur clé des anticipations du marché concernant l\'inflation et la croissance économique'
+  },
+  'unemployment-claims': {
+    title: 'Demandes d\'allocations chômage',
+    description: 'Nombre de nouvelles demandes d\'allocations chômage',
+    value: 231,
+    unit: 'milliers',
+    period: 'hebdomadaire',
+    previousValue: 242,
+    trend: 'down',
+    chart: {
+      labels: ['Sem1', 'Sem2', 'Sem3', 'Sem4', 'Sem5', 'Sem6', 'Sem7', 'Sem8', 'Sem9', 'Sem10', 'Sem11', 'Sem12', 'Sem13', 'Sem14', 'Sem15', 'Sem16'],
+      values: [280, 275, 268, 262, 255, 250, 245, 248, 252, 250, 245, 242, 240, 238, 242, 231]
+    },
+    impact: 'Indicateur très réactif des tendances du marché du travail'
   }
 });
 
@@ -2713,6 +2780,82 @@ const initialize = async () => {
   await fetchDXYData();
   await fetchRealGDPData();
   await fetchYieldCurveData(); // Ajouter cet appel
+};
+
+// Données fictives pour les rendements des bons du Trésor
+const treasuryData = ref<{
+  dates: string[];
+  values: {
+    '2y': number[];
+    '5y': number[];
+    '10y': number[];
+    '30y': number[];
+  };
+  lastUpdated: string;
+}>({
+  dates: ['Jan 2023', 'Fév 2023', 'Mar 2023', 'Avr 2023', 'Mai 2023', 'Juin 2023', 'Juil 2023', 'Août 2023', 'Sep 2023', 'Oct 2023', 'Nov 2023', 'Déc 2023', 'Jan 2024', 'Fév 2024', 'Mar 2024', 'Avr 2024'],
+  values: {
+    '2y': [4.20, 4.30, 4.35, 4.40, 4.45, 4.50, 4.55, 4.60, 4.65, 4.70, 4.65, 4.62, 4.60, 4.58, 4.57, 4.55],
+    '5y': [3.90, 4.00, 4.05, 4.10, 4.15, 4.20, 4.25, 4.30, 4.35, 4.40, 4.38, 4.37, 4.35, 4.33, 4.32, 4.30],
+    '10y': [3.80, 3.90, 3.95, 4.00, 4.05, 4.10, 4.15, 4.20, 4.25, 4.30, 4.28, 4.27, 4.25, 4.23, 4.22, 4.21],
+    '30y': [3.70, 3.80, 3.85, 3.90, 3.95, 4.00, 4.05, 4.10, 4.15, 4.20, 4.18, 4.17, 4.15, 4.13, 4.12, 4.10]
+  },
+  lastUpdated: '2024-04-15'
+});
+
+// Mise à jour des données dans economicIndicators
+economicIndicators.value = {
+  ...economicIndicators.value,
+  'treasury': {
+    ...economicIndicators.value['treasury'],
+    value: treasuryData.value.values['10y'][treasuryData.value.values['10y'].length - 1],
+    previousValue: treasuryData.value.values['10y'][treasuryData.value.values['10y'].length - 2],
+    trend: treasuryData.value.values['10y'][treasuryData.value.values['10y'].length - 1] > treasuryData.value.values['10y'][treasuryData.value.values['10y'].length - 2] ? 'up' : 'down',
+    chart: {
+      labels: treasuryData.value.dates,
+      values: treasuryData.value.values
+    }
+  },
+  'unemployment-claims': {
+    title: 'Demandes d\'allocations chômage',
+    description: 'Nombre de nouvelles demandes d\'allocations chômage',
+    value: 231,
+    unit: 'milliers',
+    period: 'hebdomadaire',
+    previousValue: 242,
+    trend: 'down',
+    chart: {
+      labels: ['Sem1', 'Sem2', 'Sem3', 'Sem4', 'Sem5', 'Sem6', 'Sem7', 'Sem8', 'Sem9', 'Sem10', 'Sem11', 'Sem12', 'Sem13', 'Sem14', 'Sem15', 'Sem16'],
+      values: [280, 275, 268, 262, 255, 250, 245, 248, 252, 250, 245, 242, 240, 238, 242, 231]
+    },
+    impact: 'Indicateur très réactif des tendances du marché du travail'
+  },
+  'carry-trade': {
+    title: 'Carry Trade',
+    description: 'Stratégie d\'investissement qui consiste à emprunter dans une devise à faible taux pour investir dans une devise à taux élevé',
+    value: {
+      'JPY-USD': 5.10,
+      'EUR-USD': 1.75,
+      'CHF-USD': 3.15
+    },
+    unit: '%',
+    period: 'actuel (différentiel de taux)',
+    previousValue: {
+      'JPY-USD': 5.05,
+      'EUR-USD': 1.80,
+      'CHF-USD': 3.10
+    },
+    trend: 'mixed',
+    chart: {
+      labels: ['Jan', 'Fév', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc', 'Jan', 'Fév', 'Mars', 'Avr'],
+      values: {
+        'JPY-USD': [4.80, 4.85, 4.90, 4.92, 4.95, 4.98, 5.00, 5.02, 5.03, 5.04, 5.05, 5.06, 5.08, 5.09, 5.08, 5.10],
+        'EUR-USD': [1.90, 1.88, 1.86, 1.85, 1.84, 1.83, 1.82, 1.81, 1.80, 1.80, 1.79, 1.78, 1.77, 1.76, 1.76, 1.75],
+        'CHF-USD': [3.20, 3.18, 3.16, 3.15, 3.14, 3.13, 3.12, 3.11, 3.10, 3.10, 3.09, 3.08, 3.07, 3.06, 3.06, 3.05]
+      }
+    },
+    impact: 'Indicateur des flux de capitaux internationaux et des opportunités d\'arbitrage entre les marchés financiers'
+  }
 };
 </script>
 

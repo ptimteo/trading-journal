@@ -113,9 +113,6 @@ onMounted(async () => {
                 <p class="font-medium">{{ currentUser?.name }}</p>
                 <p class="text-gray-500 text-xs">{{ currentUser?.email }}</p>
               </div>
-              <router-link to="/admin" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                Administration
-              </router-link>
               <button @click="logout" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                 Se déconnecter
               </button>

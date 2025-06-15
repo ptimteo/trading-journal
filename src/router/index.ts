@@ -79,15 +79,6 @@ const router = createRouter({
         title: 'Inscription',
         requiresAuth: false
       }
-    },
-    {
-      path: '/admin',
-      name: 'admin',
-      component: defineAsyncComponent(() => import('../views/AdminView.vue')),
-      meta: {
-        title: 'Administration',
-        requiresAuth: true
-      }
     }
   ]
 });
