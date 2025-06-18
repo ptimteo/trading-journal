@@ -51,6 +51,11 @@ export default defineConfig({
       strict: false // Moins strict sur le système de fichiers
     },
     proxy: {
+      '/api': {
+        target: 'http://localhost:5002',
+        changeOrigin: true,
+        secure: false,
+      },
       '/finnhub': {
         target: 'https://finnhub.io/api/v1',
         changeOrigin: true,

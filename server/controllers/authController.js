@@ -4,11 +4,6 @@ import { BadRequestError, UnauthenticatedError } from '../errors/index.js';
 
 // Inscription d'un nouvel utilisateur
 const register = async (req, res) => {
-  // Vérifier que l'utilisateur est bien authentifié
-  if (!req.user || !req.user.id) {
-    throw new UnauthenticatedError('Vous devez être connecté pour créer un nouvel utilisateur');
-  }
-
   const user = await User.create({ ...req.body });
   const token = user.createJWT();
   res.status(StatusCodes.CREATED).json({ 

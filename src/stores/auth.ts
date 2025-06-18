@@ -56,7 +56,7 @@ export const useAuthStore = defineStore('auth', {
         return user;
       } catch (error: any) {
         if (error.message === 'Network Error') {
-          this.error = 'Erreur de connexion au serveur. Vérifiez que le backend est bien démarré sur le port 5000.';
+          this.error = 'Erreur de connexion au serveur. Vérifiez que le backend est bien démarré sur le port 5002.';
         } else {
           this.error = error.response?.data?.msg || 'Une erreur est survenue lors de l\'inscription';
         }
@@ -84,7 +84,7 @@ export const useAuthStore = defineStore('auth', {
         return user;
       } catch (error: any) {
         if (error.message === 'Network Error') {
-          this.error = 'Erreur de connexion au serveur. Vérifiez que le backend est bien démarré sur le port 5000.';
+          this.error = 'Erreur de connexion au serveur. Vérifiez que le backend est bien démarré sur le port 5002.';
         } else {
           this.error = error.response?.data?.msg || 'Identifiants invalides';
         }

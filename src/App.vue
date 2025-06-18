@@ -7,7 +7,7 @@ import { useAuthStore } from './stores/auth';
 import axios from 'axios';
 
 // Configuration d'axios pour l'API backend
-axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5002';
 // Autoriser les cookies cross-origin
 axios.defaults.withCredentials = true;
 
